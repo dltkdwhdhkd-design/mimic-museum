@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+<title>미믹 뮤지엄 — MIMIC MUSEUM</title>
+<link rel="stylesheet" href="css/style.css?v=20261125">
+</head>
+<body>
+
+<!-- 타이틀 -->
+<section id="s-title" class="screen center">
+  <div class="title-box">
+    <div class="sub">중학교 과학 전 단원 · 팀 대항 변장 숨바꼭질</div>
+    <h1 id="title-h1"><span>MIMIC</span><span>MUSEUM</span></h1>
+    <div class="kor">미믹 뮤지엄</div>
+    <p class="story">문 닫은 과학관에 전시물로 변신하는 <b>미믹</b>이 숨어들었다. 미믹은 자기 전시물이 원래 있어야 할 전시실에 숨고, <b>학예사</b>는 ‘여기 있으면 안 되는 전시물’을 찾아 찍는다.</p>
+    <div class="btns">
+      <button id="btn-resume" class="big primary" style="display:none">이전 게임 이어하기</button>
+      <button id="btn-teacher" class="big">교사 · 방 만들기</button>
+      <button id="btn-teacher-play">교사 · 방 만들고 같이 하기</button>
+      <button id="btn-student" class="big primary">학생 · 참가하기</button>
+      <div class="row2"><button id="btn-practice-seek">혼자 연습 · 학예사</button><button id="btn-practice-hide">혼자 연습 · 미믹</button></div>
+      <button id="btn-options-title" class="ghost">⚙ 설정 (소리 · 감도)</button>
+    </div>
+    <p class="muted small">공개 중계 서버를 지나므로 실명 대신 별명을 쓰세요. · 이모지 그림: <a href="https://github.com/jdecked/twemoji" target="_blank" rel="noopener">Twemoji</a> (CC-BY 4.0)</p>
+  </div>
+</section>
+
+<!-- 교사 대기실 -->
+<section id="s-host-lobby" class="screen" style="display:none">
+  <div class="panel wide">
+    <div class="row between">
+      <div><div class="label">방 코드</div><div id="lobby-code" class="code">----</div><div class="muted small" id="lobby-url"></div></div>
+      <div class="right"><div class="label">접속 (최대 16명)</div><div id="lobby-count" class="code small-code">0명</div><div id="net-status" class="muted small"></div></div>
+    </div>
+    <div id="lobby-teams" class="teams"></div>
+    <div class="row"><button id="btn-shuffle">팀 섞기</button><span class="muted small">학생 이름 옆에서 팀을 옮길 수 있습니다.</span></div>
+    <h3>게임 설정</h3>
+    <div class="settings">
+      <label>팀 수 <select id="set-teams"><option value="2">2팀</option><option value="3">3팀</option><option value="4">4팀</option></select></label>
+      <label>라운드 <select id="set-rounds"></select></label>
+      <label>숨는 시간 <input id="set-hide" type="range" min="20" max="90" step="5"> <span id="set-hide-v"></span></label>
+      <label>찾는 시간 <input id="set-seek" type="range" min="1.5" max="5" step="0.5"> <span id="set-seek-v"></span></label>
+      <label>미믹 기척 소리 <select id="set-beep"><option value="20">20초마다</option><option value="30">30초마다</option><option value="45">45초마다</option><option value="0">끄기</option></select></label>
+      <label>학예사 하트 <input id="set-hearts" type="range" min="2" max="8" step="1"> <span id="set-hearts-v"></span></label>
+      <label>전시관 크기 <select id="set-size"><option value="auto">인원에 맞게</option><option value="small">작게</option><option value="medium">보통</option><option value="large">크게</option></select></label>
+    </div>
+    <h3>단원 <button id="units-all" class="mini">전체</button> <button id="units-none" class="mini ghost">모두 빼기</button></h3>
+    <div id="units"></div>
+    <p id="lobby-hint" class="muted small"></p>
+    <div class="row"><button id="btn-start" class="primary big">시작</button></div>
+  </div>
+</section>
+
+<!-- 학생 참가 -->
+<section id="s-client-lobby" class="screen center" style="display:none">
+  <div class="panel">
+    <h2>참가</h2>
+    <input id="inp-name" maxlength="8" placeholder="별명 (실명 말고)">
+    <input id="inp-code" maxlength="4" inputmode="numeric" placeholder="방 코드 4자리">
+    <button id="btn-join" class="primary big">입장</button>
+    <button id="btn-join-cancel" class="ghost" style="display:none">취소 · 다시 입력</button>
+    <p id="join-msg" class="muted"></p>
+    <button id="btn-lobby-audio">🔊 소리 켜기 · 시험</button>
+    <p id="lobby-audio-status" class="muted small" role="status">입장 전에 소리가 들리는지 확인해 주세요.</p>
+  </div>
+</section>
+
+<!-- 게임 -->
+<section id="s-game" class="screen" style="display:none">
+  <canvas id="game-canvas"></canvas>
+  <div id="touch-zone"></div>
+  <div id="stick"><div id="stick-knob"></div></div>
+  <div id="hud">
+    <div id="hud-top"><span id="hud-role"></span><span id="hud-round"></span></div>
+    <div id="hud-scores"></div>
+    <div id="hud-room"></div>
+  </div>
+  <div id="hud-btns"><button id="btn-to-console" style="display:none">관제</button><button id="btn-map">🗺 지도</button><button id="btn-mute">🔊</button><button id="btn-options">⚙</button></div>
+  <div id="hud-me"></div>
+  <div id="aim-label" style="display:none"></div>
+  <div id="toast"></div>
+  <div id="feed"></div>
+  <div id="lock-hint">화면을 클릭하면 마우스로 둘러봅니다 · WASD 이동 · 클릭/E 행동 · 우클릭/Q 보조 · M 지도 · Esc 해제</div>
+  <button id="btn-sub" style="display:none"></button>
+  <button id="btn-main" style="display:none"></button>
+  <div id="offers" style="display:none">
+    <div class="offer-box">
+      <div class="label">변신할 전시물</div>
+      <p id="offer-hint"></p>
+      <div class="offer-row">
+        <button id="offer-0" class="offer"><canvas width="96" height="96"></canvas><span class="nm"></span><span class="key">1</span></button>
+        <button id="offer-1" class="offer"><canvas width="96" height="96"></canvas><span class="nm"></span><span class="key">2</span></button>
+        <button id="offer-2" class="offer"><canvas width="96" height="96"></canvas><span class="nm"></span><span class="key">3</span></button>
+      </div>
+      <button id="offer-close" class="ghost">닫기 (지금 모습 유지)</button>
+    </div>
+  </div>
+  <div id="round-result" style="display:none"></div>
+</section>
+
+<!-- 재접속 -->
+<div id="reconnect" role="dialog" aria-modal="true" aria-labelledby="reconnect-title" style="display:none">
+  <div class="panel">
+    <h2 id="reconnect-title">다시 연결하는 중…</h2>
+    <p role="status">같은 팀, 같은 자리로 돌아갑니다. 인터넷 연결과 선생님 화면을 확인해 주세요.</p>
+    <p class="muted small">연결이 끊긴 동안에도 게임은 계속됩니다.</p>
+    <div class="row"><button id="btn-reconnect" class="primary">다시 연결</button><button id="btn-reconnect-back" class="ghost">참가 화면으로</button></div>
+  </div>
+</div>
+
+<!-- 설정 -->
+<div id="options" style="display:none">
+  <div class="panel opt-box">
+    <h2>설정</h2>
+    <p class="muted small">이 기기에 저장됩니다.</p>
+    <p id="opt-audio-status" class="small" role="status"></p>
+    <label class="opt">전체 음량 <input id="opt-vol" type="range" min="0" max="1" step="0.05"> <span id="opt-vol-v"></span></label>
+    <label class="opt">마우스 감도 <input id="opt-mouse" type="range" min="0.2" max="3" step="0.1"> <span id="opt-mouse-v"></span></label>
+    <label class="opt">터치 회전 감도 (폰 · 패드) <input id="opt-touch" type="range" min="0.2" max="3" step="0.1"> <span id="opt-touch-v"></span></label>
+    <label class="opt check"><input id="opt-invert" type="checkbox"> 마우스 위아래 반전</label>
+    <label class="opt check"><input id="opt-vib" type="checkbox"> 진동 (폰)</label>
+    <label class="opt">화질 (끊기면 낮추기) <select id="opt-quality"><option value="auto">자동</option><option value="high">높음</option><option value="mid">보통</option><option value="low">낮음</option></select></label>
+    <div class="row"><button id="opt-test">소리 켜기 · 시험</button><button id="opt-reset" class="ghost">기본값</button><button id="opt-close" class="primary">닫기</button></div>
+  </div>
+</div>
+
+<!-- 교사 관제 -->
+<section id="s-host-console" class="screen" style="display:none">
+  <div id="console-top">
+    <span>관제 · 방 <b id="console-code"></b> <span id="console-net" class="muted small"></span></span>
+    <span class="cbtns">
+      <button id="btn-to-game" style="display:none">내 게임 화면</button>
+      <button id="btn-showhiders">미믹 위치 보기</button>
+      <button id="btn-cut">이번 단계 끝내기</button>
+      <button id="btn-skip" style="display:none">다음 라운드 바로</button>
+      <button id="btn-host-end" class="danger">게임 종료</button>
+    </span>
+  </div>
+  <canvas id="host-canvas"></canvas>
+  <div id="console-side"><div id="console-scores"></div><div id="host-log"></div></div>
+</section>
+
+<!-- 결과 -->
+<section id="s-end" class="screen" style="display:none">
+  <div class="panel wide results">
+    <h2 id="end-title"></h2>
+    <div id="end-body"></div>
+    <div class="row"><button id="btn-end-again" class="primary" style="display:none">다시 하기</button><button id="btn-end-back" class="big">처음으로</button></div>
+  </div>
+</section>
+
+<script src="lib/mqtt.min.js"></script>
+<script src="lib/peerjs.min.js"></script>
+<script src="js/content.js?v=20261125"></script>
+<script src="js/emoji-map.js?v=20261125"></script>
+<script src="js/art.js?v=20261125"></script>
+<script src="js/museum.js?v=20261125"></script>
+<script src="js/net.js?v=20261125"></script>
+<script src="js/sound.js?v=20261125"></script>
+<script src="js/options.js?v=20261125"></script>
+<script src="js/fps.js?v=20261125"></script>
+<script src="js/rules.js?v=20261125"></script>
+<script src="js/client.js?v=20261125"></script>
+<script src="js/hostview.js?v=20261125"></script>
+<script src="js/main.js?v=20261125"></script>
+</body>
+</html>

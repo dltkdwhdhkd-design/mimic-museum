@@ -1,0 +1,14 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><title>전시물 그림 확인</title>
+<style>body{background:#1b1c20;color:#ddd;font:12px sans-serif;margin:8px}.g{display:flex;flex-wrap:wrap;gap:6px}.c{width:104px;text-align:center}.c canvas{background:#e9e4da;display:block;margin:auto}h3{margin:14px 0 4px;color:#ffd27e}</style></head>
+<body><div id="out"></div>
+<script src="../js/content.js"></script><script src="../js/emoji-map.js"></script><script src="../js/art.js"></script>
+<script>
+Art.load("../");
+Art.whenReady(()=>{
+  const out=document.getElementById('out'); const only=new URLSearchParams(location.search).get('w');
+  for(const w of MM.WINGS){ if(only&&!only.split(',').includes(w.id))continue; const h=document.createElement('h3'); h.textContent=w.name; out.appendChild(h);
+    for(const ri of w.roomIdx){ const r=MM.ROOMS[ri]; const d=document.createElement('div'); d.className='g';
+      for(const ii of r.itemIdx){ const it=MM.ITEMS[ii]; const c=document.createElement('div'); c.className='c'; const cv=Art.exhibit(it,Art.wingColor(w.id)); cv.style.width='96px'; c.appendChild(cv); const t=document.createElement('div'); t.textContent=it.name; c.appendChild(t); d.appendChild(c);} out.appendChild(d);} }
+  document.title='ready';
+});
+</script></body></html>
