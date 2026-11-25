@@ -9,7 +9,7 @@
   const UNITS_KEY = "mimicmuseum.units.v1", SET_KEY = "mimicmuseum.settings.v1";
   function loadUnits() { try { const u = JSON.parse(localStorage.getItem(UNITS_KEY) || "null"); if (Array.isArray(u) && u.length) return u.filter(id => MM.UNIT_BY_ID[id]); } catch (e) {} return MM.UNITS.map(u => u.id); }
   function saveUnits(u) { try { localStorage.setItem(UNITS_KEY, JSON.stringify(u)); } catch (e) {} }
-  function loadSettings() { const s = { ...Rules.DEFAULTS }; try { const v = JSON.parse(localStorage.getItem(SET_KEY) || "{}"); for (const k of ["teams", "rounds", "hideTime", "seekTime", "beepEvery", "hearts", "size"]) if (k in v) s[k] = v[k]; } catch (e) {} s.units = loadUnits(); return s; }
+  function loadSettings() { const s = { ...Rules.DEFAULTS }; try { const v = JSON.parse(localStorage.getItem(SET_KEY) || "{}"); for (const k of ["teams", "rounds", "hideTime", "seekTime", "beepEvery", "size"]) if (k in v) s[k] = v[k]; } catch (e) {} s.units = loadUnits(); return s; }
   function saveSettings(s) { try { const { units, ...rest } = s; localStorage.setItem(SET_KEY, JSON.stringify(rest)); } catch (e) {} }
 
   // ---------------- 호스트(교사 기기) ----------------
@@ -30,8 +30,7 @@
         return;
       }
       if (!this.started || !this.players.has(from)) return;
-      Rules.handle(this.W, from, d);
-      this.flush();
+      Rules.handle(this.W, from, d);   // 결과 사건은 loop()가 0.05초마다 한꺼번에 보낸다
     },
     teamsN() { return Math.max(2, Math.min(4, this.settings.teams)); },
     assignTeam(p) {
@@ -46,10 +45,10 @@
     },
     moveTeam(id, team) { const p = this.players.get(id); if (!p || this.started) return; p.team = Math.max(0, Math.min(this.teamsN() - 1, team)); this.broadcastLobby(); },
     kick(id) { if (this.started || !this.players.has(id)) return; this.players.delete(id); Net.sendToClients({ t: "kicked", to: id }); this.broadcastLobby(); },
-    roster() { const names = {}, teams = {}; for (const p of this.players.values()) { names[p.id] = p.name; teams[p.id] = p.team; } return { names, teams }; },
+    roster() { const names = {}, teams = {}; if (this.W) for (const p of this.W.players.values()) if (p.bot) { names[p.id] = p.name; teams[p.id] = p.team; } for (const p of this.players.values()) { names[p.id] = p.name; teams[p.id] = p.team; } return { names, teams }; },
     lobbyMsg() { return { t: "lobby", roomId: Net.id, players: [...this.players.values()].map(p => [p.id, p.name, p.team]), teams: this.teamsN() }; },
     broadcastLobby() { Net.sendToClients(this.lobbyMsg()); renderHostLobby(); },
-    clientSettings() { const s = this.settings; return { hearts: s.hearts, tauntCd: s.tauntCd, seekTime: s.seekTime, hideTime: s.hideTime, beepEvery: s.beepEvery }; },
+    clientSettings() { const s = this.settings; return { tauntCd: s.tauntCd, seekTime: s.seekTime, hideTime: s.hideTime, beepEvery: s.beepEvery }; },
     start() {
       // 빈 팀 번호를 당긴다 (인원이 팀 수보다 적을 때)
       const used = [...new Set([...this.players.values()].map(p => p.team))].sort((a, b) => a - b);
@@ -57,20 +56,18 @@
       this.started = true; this.final = null; this.endSends = 0;
       this.W = Rules.create(this.settings); this.W.practice = this.practice;
       for (const p of this.players.values()) Rules.addPlayer(this.W, p.id, p.name, p.team);
-      if (this.practice === "seek") Rules.addBots(this.W, 6);
+      if (this.practice === "seek") Rules.addBots(this.W, 6, "hide");
+      if (this.practice === "hide") Rules.addBots(this.W, 3, "seek");
       Rules.startGame(this.W);
       HostView.init();
       this.flush(); this.sendGo();
       this.lastTick = performance.now(); clearInterval(this.timer); this.timer = setInterval(() => this.loop(), 50);
     },
     flush() {
-      const W = this.W; if (!W) return;
-      for (const e of W.events) {
-        Net.sendToClients({ t: "ev", ...e });
-        HostView.onEvent(W, e);
-        if (e.k === "end") this.final = e;
-      }
-      W.events.length = 0;
+      const W = this.W; if (!W || !W.events.length) return;
+      const list = W.events.splice(0);
+      Net.sendToClients({ t: "evs", list });   // 한 번에 묶어 보낸다 (연사 때문에 사건이 많다)
+      for (const e of list) { HostView.onEvent(W, e); if (e.k === "end") this.final = e; }
     },
     sendGo(to, requestId) {
       const W = this.W, ros = this.roster();
@@ -127,7 +124,6 @@
     const range = (id, k, mul, fmt) => { const el = $(id); el.value = s[k] / mul; const out = () => $(id + "-v").textContent = fmt(+el.value); out(); el.oninput = () => { set(k, +el.value * mul); out(); }; };
     range("set-hide", "hideTime", 1, v => v + "초");
     range("set-seek", "seekTime", 60, v => (v % 1 ? v.toFixed(1) : v) + "분");
-    range("set-hearts", "hearts", 1, v => v + "개");
     $("set-beep").value = String(s.beepEvery); $("set-beep").onchange = () => set("beepEvery", +$("set-beep").value);
     $("set-size").value = s.size; $("set-size").onchange = () => set("size", $("set-size").value);
     renderUnits(); lobbyHint();
@@ -177,7 +173,7 @@
     Net.startLocal((d, from) => HostGame.onMsg(d, from));
     Net.setLocalClient(d => clientRecv(d));
     HostGame.practice = mode; practiceMode = mode;
-    HostGame.settings = { ...Rules.DEFAULTS, units: loadUnits(), teams: 2, rounds: 1, seekTime: 180, beepEvery: mode === "seek" ? 20 : 0, hearts: 5, size: "auto", resultTime: 3 };
+    HostGame.settings = { ...Rules.DEFAULTS, units: loadUnits(), teams: 2, rounds: 1, hideTime: 25, seekTime: 150, beepEvery: mode === "seek" ? 25 : 30, size: "auto", resultTime: 3 };
     Net.onMessage(() => {});
     Net.sendToHost({ t: "join", name: "나" });
     HostGame.start();
@@ -321,7 +317,7 @@
       Client.stop();
       const mine = e.players.find(p => p.id === Net.id);
       $("end-title").textContent = e.practice === "hide" ? "미믹 연습 결과" : e.practice === "seek" ? "학예사 연습 결과" : "최종 결과";
-      $("end-body").innerHTML = (mine && !e.practice ? `<p class="big">나: <b>${mine.score}점</b> · 찾아냄 ${mine.catches} · 잡힘 ${mine.caught} · 잘못 찍음 ${mine.wrongTags} · 제자리에 숨은 시간 ${mine.correctSec}초</p>` : "") + HostView.results(e);
+      $("end-body").innerHTML = (mine && !e.practice ? `<p class="big">나: <b>${mine.score}점</b> · 잡음 ${mine.catches} (도움 ${mine.assists}) · 잡힘 ${mine.caught} · 도망 ${mine.escapes} · 진짜 쏨 ${mine.realShots} · 제자리에 숨은 시간 ${mine.correctSec}초</p>` : "") + HostView.results(e);
       $("btn-end-again").style.display = e.practice ? "" : "none";
       show("end");
     }, e.practice ? 1200 : 2500);

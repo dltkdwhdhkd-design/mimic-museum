@@ -8,7 +8,7 @@ window.Art = (function () {
   let atlas = null, atlasReady = false; const onReady = [];
   const provided = {};
   // 교사가 넣은 그림(있으면 우선). img/ 폴더에 PNG를 넣고 여기에 이름을 적는다 (docs/art-requests.md)
-  // 쓸 수 있는 이름: curator, curator1~curator4(팀별), pedestal, bench, plant, desk, vending, rope, poster
+  // 쓸 수 있는 이름: curator, curator1~curator4(팀별), pedestal, bench, plant, desk, vending, rope, poster, trash, extinguisher
   const PROVIDED = [];
 
   function load(base) {
@@ -418,9 +418,40 @@ window.Art = (function () {
     else if (kind === "plant") { c = mk(64, 110); const g = c.getContext("2d"); g.fillStyle = "#a35f3a"; g.beginPath(); g.moveTo(16, 70); g.lineTo(48, 70); g.lineTo(44, 106); g.lineTo(20, 106); g.closePath(); g.fill(); const r = rng(7); for (let i = 0; i < 14; i++) { g.fillStyle = ["#3f8a3a", "#58a84a", "#2f6e2c"][i % 3]; g.beginPath(); g.ellipse(32 + (r() - 0.5) * 34, 20 + r() * 50, 7, 16, (r() - 0.5) * 1.6, 0, 7); g.fill(); } }
     else if (kind === "desk") { c = mk(140, 80); const g = c.getContext("2d"); g.fillStyle = "#3d4a5e"; g.fillRect(6, 24, 128, 52); g.fillStyle = "#566886"; g.fillRect(4, 18, 132, 10); g.fillStyle = "#e9e3d6"; g.font = "bold 15px sans-serif"; g.textAlign = "center"; g.fillText("안내", 70, 56); }
     else if (kind === "vending") { c = mk(70, 130); const g = c.getContext("2d"); g.fillStyle = "#b83a3a"; g.fillRect(4, 4, 62, 124); g.fillStyle = "#cfe8f6"; g.fillRect(10, 12, 38, 70); for (let y = 0; y < 4; y++) for (let x = 0; x < 3; x++) { g.fillStyle = ["#e5c64a", "#59a3e0", "#e57a3a"][(x + y) % 3]; g.fillRect(13 + x * 12, 16 + y * 17, 8, 12); } g.fillStyle = "#2a2a2a"; g.fillRect(10, 92, 38, 14); g.fillStyle = "#ddd"; g.fillRect(52, 30, 8, 20); }
+    else if (kind === "trash") { c = mk(56, 74); const g = c.getContext("2d"); g.fillStyle = "rgba(0,0,0,0.25)"; g.beginPath(); g.ellipse(28, 70, 22, 4, 0, 0, 7); g.fill(); const b = g.createLinearGradient(8, 0, 48, 0); b.addColorStop(0, "#4f6b5a"); b.addColorStop(0.5, "#6f9079"); b.addColorStop(1, "#486152"); g.fillStyle = b; g.beginPath(); g.moveTo(9, 18); g.lineTo(47, 18); g.lineTo(43, 70); g.lineTo(13, 70); g.closePath(); g.fill(); g.fillStyle = "#3a4d41"; g.fillRect(6, 12, 44, 8); g.fillStyle = "#5b7a66"; g.fillRect(20, 7, 16, 6); g.strokeStyle = "rgba(0,0,0,0.25)"; g.lineWidth = 2; for (const x of [20, 28, 36]) { g.beginPath(); g.moveTo(x, 26); g.lineTo(x - 1, 62); g.stroke(); } g.fillStyle = "#f2f2f2"; g.fillRect(23, 36, 10, 8); g.fillStyle = "#4f6b5a"; g.fillRect(25, 38, 6, 1.5); g.fillRect(25, 41, 6, 1.5); }
+    else if (kind === "extinguisher") { c = mk(44, 88); const g = c.getContext("2d"); g.fillStyle = "rgba(0,0,0,0.25)"; g.beginPath(); g.ellipse(22, 84, 15, 3.5, 0, 0, 7); g.fill(); const b = g.createLinearGradient(9, 0, 35, 0); b.addColorStop(0, "#a8231c"); b.addColorStop(0.45, "#e0473a"); b.addColorStop(1, "#9a1f19"); g.fillStyle = b; g.beginPath(); g.moveTo(10, 30); g.quadraticCurveTo(10, 22, 22, 21); g.quadraticCurveTo(34, 22, 34, 30); g.lineTo(34, 82); g.lineTo(10, 82); g.closePath(); g.fill(); g.fillStyle = "#2a2a2e"; g.fillRect(17, 12, 10, 10); g.fillRect(14, 8, 18, 5); g.strokeStyle = "#1e1e22"; g.lineWidth = 3; g.beginPath(); g.moveTo(28, 12); g.quadraticCurveTo(40, 18, 36, 40); g.stroke(); g.fillStyle = "#f4f0e6"; g.fillRect(12, 44, 20, 18); g.fillStyle = "#c62828"; g.font = "bold 9px sans-serif"; g.textAlign = "center"; g.fillText("소화기", 22, 56); g.fillStyle = "#e8e8e8"; g.beginPath(); g.arc(22, 32, 4, 0, 7); g.fill(); }
     else if (kind === "rope") { c = mk(120, 70); const g = c.getContext("2d"); g.fillStyle = "#c8a64a"; for (const x of [10, 104]) { g.fillRect(x, 18, 6, 48); g.beginPath(); g.arc(x + 3, 16, 6, 0, 7); g.fill(); g.fillRect(x - 6, 62, 18, 6); } g.strokeStyle = "#9b1d2a"; g.lineWidth = 5; g.beginPath(); g.moveTo(14, 22); g.quadraticCurveTo(60, 46, 106, 22); g.stroke(); }
     else { c = mk(80, 110); const g = c.getContext("2d"); g.fillStyle = "#30343c"; g.fillRect(36, 40, 8, 66); g.fillStyle = "#f3efe5"; g.fillRect(8, 6, 64, 44); g.strokeStyle = "#555"; g.strokeRect(8.5, 6.5, 63, 43); g.fillStyle = "#4b6aa8"; g.fillRect(14, 12, 52, 6); g.fillStyle = "#999"; for (let i = 0; i < 4; i++) g.fillRect(14, 24 + i * 6, 40 - i * 6, 2); }
     cache.set(key, c); return c;
+  }
+
+  // ---------- 미믹 표시 ----------
+  // 움직이는 미믹: 그림 위에 동그란 눈알 두 개 (dir: 눈동자 방향 -1·1)
+  function withEyes(img, key, dir) {
+    const k = "ey" + key + dir; if (cache.has(k)) return cache.get(k);
+    const c = mk(img.width, img.height), g = c.getContext("2d"); g.drawImage(img, 0, 0);
+    const R = Math.max(6, Math.min(img.width * 0.15, img.height * 0.11)), cy = Math.max(R + 2, img.height * 0.3), cx = img.width / 2;
+    for (const sx of [-1, 1]) {
+      const x = cx + sx * R * 1.1;
+      g.fillStyle = "#fff"; g.strokeStyle = "#1b1b1b"; g.lineWidth = Math.max(1.5, R * 0.16); g.beginPath(); g.arc(x, cy, R, 0, 7); g.fill(); g.stroke();
+      g.fillStyle = "#111"; g.beginPath(); g.arc(x + dir * R * 0.42, cy + R * 0.18, R * 0.5, 0, 7); g.fill();
+      g.fillStyle = "#fff"; g.beginPath(); g.arc(x + dir * R * 0.42 - R * 0.16, cy + R * 0.02, R * 0.14, 0, 7); g.fill();
+    }
+    if (!atlasReady) return c;
+    cache.set(k, c); return c;
+  }
+  // 학예사가 쏜 진짜 물건: 빨간 '진짜' 도장 (fy: 도장 높이 비율)
+  function stamped(img, key, fy) {
+    const k = "st" + key; if (cache.has(k)) return cache.get(k);
+    const c = mk(img.width, img.height), g = c.getContext("2d"); g.drawImage(img, 0, 0);
+    const R = Math.min(img.width * 0.4, img.height * 0.28), cx = img.width / 2, cy = img.height * (fy || 0.4);
+    g.save(); g.translate(cx, cy); g.rotate(-0.3);
+    g.strokeStyle = "rgba(206,28,28,0.92)"; g.lineWidth = Math.max(2, R * 0.13); g.beginPath(); g.arc(0, 0, R, 0, 7); g.stroke();
+    g.lineWidth = Math.max(1, R * 0.05); g.beginPath(); g.arc(0, 0, R * 0.8, 0, 7); g.stroke();
+    g.fillStyle = "rgba(206,28,28,0.95)"; g.font = `bold ${Math.round(R * 0.62)}px sans-serif`; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("진짜", 0, 1);
+    g.restore();
+    if (!atlasReady) return c;
+    cache.set(k, c); return c;
   }
 
   // ---------- 벽 ----------
@@ -471,5 +502,5 @@ window.Art = (function () {
   const WING_COLORS = ["#c0504d", "#4f81bd", "#9bbb59", "#8064a2", "#4bacc6", "#f79646", "#2c7a6b", "#b5874b", "#c2185b", "#5d6d7e", "#7cb342", "#6d4c41", "#00897b", "#3949ab", "#e65100", "#8e24aa"];
   function wingColor(wingId) { const w = MM.WING_BY_ID[wingId]; return w ? WING_COLORS[w.index % WING_COLORS.length] : "#8a7a5a"; }
 
-  return { load, whenReady, object, exhibit, loose, curator, decor, wall, sign, restSign, frameArt, thumb, clear, wingColor, STAND_H, STAND_W, get ready() { return atlasReady; }, _hash: hash, _rng: rng };
+  return { load, whenReady, object, exhibit, loose, curator, decor, withEyes, stamped, wall, sign, restSign, frameArt, thumb, clear, wingColor, STAND_H, STAND_W, get ready() { return atlasReady; }, _hash: hash, _rng: rng };
 })();

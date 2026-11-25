@@ -6,18 +6,19 @@ window.HostView = (function () {
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
   function init() { cv = document.getElementById("host-canvas"); ctx = cv.getContext("2d"); log = []; base = null; document.getElementById("host-log").innerHTML = ""; }
   function addLog(html) { log.unshift(`<div>${html}</div>`); if (log.length > 60) log.length = 60; const b = document.getElementById("host-log"); if (b) b.innerHTML = log.join(""); }
-  function itemName(i) { return MM.ITEMS[i] ? MM.ITEMS[i].name : "?"; }
+  function itemName(i) { return Rules.formName(i) || "?"; }
   function roomName(r) { return MM.ROOMS[r] ? MM.ROOMS[r].name : "?"; }
   function onEvent(W, e) {
     const nm = id => (W.players.get(id) || {}).name || "?", tc = id => TEAM_COLORS[((W.players.get(id) || {}).team || 0) % 4];
     switch (e.k) {
       case "round": addLog(`<b class="sec">━ ${e.n}라운드 · 미믹: ${e.hiders.map(t => (t + 1) + "팀").join(", ")}</b><br><span class="muted">${e.wings.map(id => MM.WING_BY_ID[id].name).join(" · ")}</span>`); base = null; break;
       case "phase": addLog(`<b>학예사 출발!</b>`); break;
-      case "caught": addLog(`🔍 <b style="color:${tc(e.by)}">${esc(nm(e.by))}</b> → 🎭 ${esc(nm(e.id))} <span class="it">'${esc(itemName(e.item))}'</span> ${e.ok ? "(제자리였음)" : e.perched ? `<span class="bad">잘못 숨음: ${esc(e.where)}</span>` : `<span class="muted">돌아다니다 들킴</span>`}`); break;
-      case "wrong": addLog(`❌ <b style="color:${tc(e.by)}">${esc(nm(e.by))}</b> 진짜 전시물 <span class="it">'${esc(itemName(e.item))}'</span> 찍음`); break;
+      case "caught": addLog(`🔍 <b style="color:${tc(e.by)}">${esc(nm(e.by))}</b>${(e.assists || []).length ? `<span class="muted"> (+${e.assists.map(a => esc(nm(a))).join(", ")})</span>` : ""} → 🎭 ${esc(nm(e.id))} <span class="it">'${esc(itemName(e.item))}'</span> ${e.item < 0 ? `<span class="muted">잡동사니</span>` : !e.still ? `<span class="muted">도망치다</span>` : e.ok ? "(제자리였음)" : `<span class="bad">엉뚱한 곳: ${esc(e.where)}</span>`}`); break;
+      case "escape": addLog(`💨 ${esc(nm(e.id))} 맞고 도망 성공`); break;
+      case "closing": addLog(`<b>⏰ 폐관 30초</b>`); break;
       case "jail": addLog(`🚓 ${esc(nm(e.id))} 경비실`); break;
       case "whistle": addLog(`📯 <b style="color:${tc(e.by)}">${esc(nm(e.by))}</b> 호루라기`); break;
-      case "taunt": addLog(`🎺 ${esc(nm(e.id))} 도발`); break;
+      case "taunt": if (!e.auto) addLog(`🎺 ${esc(nm(e.id))} 도발`); break;
       case "rend": addLog(`<b class="sec">━ ${e.n}라운드 끝</b> ${e.scores.map((v, i) => `<span style="color:${TEAM_COLORS[i]}">${i + 1}팀 ${v}</span>`).join(" · ")}`); break;
     }
   }
@@ -54,10 +55,11 @@ window.HostView = (function () {
         if (W.phase === "hide") continue;
         ctx.fillStyle = P.jailUntil > W.elapsed ? "#777" : TEAM_COLORS[P.team % 4]; ctx.beginPath(); ctx.arc(x, y, Math.max(4, T * 0.45), 0, 7); ctx.fill();
         ctx.fillStyle = "#fff"; ctx.font = `${Math.max(10, T * 0.85)}px sans-serif`; ctx.textAlign = "center"; ctx.fillText(P.name, x, y - T * 0.8);
-      } else if (reveal && P.state === "alive" && P.item >= 0) {
-        const s = Math.max(14, T * 1.3); ctx.drawImage(Art.object(MM.ITEMS[P.item]), x - s / 2, y - s / 2, s, s);
+      } else if (reveal && P.state === "alive" && P.item !== -1) {
+        const s = Math.max(14, T * 1.3), img = P.item >= 0 ? Art.object(MM.ITEMS[P.item]) : Art.decor(Rules.EVERYDAY[-2 - P.item].kind), k = s / Math.max(img.width, img.height);
+        ctx.drawImage(img, x - img.width * k / 2, y - img.height * k / 2, img.width * k, img.height * k);
         const ok = Rules.correctAt(W, P);
-        if (P.perch >= 0) { ctx.strokeStyle = ok ? "#3cff7a" : "#ff4a4a"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(x, y, s * 0.6, 0, 7); ctx.stroke(); }
+        ctx.strokeStyle = P.item < 0 ? "#9a9a9a" : ok ? "#3cff7a" : "#ff4a4a"; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(x, y, s * 0.6, 0, 7); ctx.stroke();
         ctx.fillStyle = "#ffe9b0"; ctx.font = `${Math.max(10, T * 0.8)}px sans-serif`; ctx.textAlign = "center"; ctx.fillText(P.name, x, y + s * 0.85);
       }
     }
@@ -72,33 +74,23 @@ window.HostView = (function () {
 
   // ---------- 결과 ----------
   function results(res) {
-    if (res.practice === "hide") {
-      const p = res.players[0] || {}; const wrong = res.log.filter(l => l.type === "hideWrong");
-      return `<p class="big">제자리 찾기 ${p.correctPerches || 0} / ${p.perches || 0}번</p>` + noteTable(wrong.map(l => ({ a: itemName(l.item), b: esc(roomName(l.at)), c: MM.ROOMS[MM.ITEMS[l.item].room].name, note: MM.ITEMS[l.item].note })), "틀린 자리", ["전시물", "올라간 전시실", "있어야 할 전시실"]);
-    }
-    if (res.practice === "seek") {
-      const p = res.players[0] || {};
-      return `<p class="big">점수 ${p.score} · 찾아낸 미믹 ${p.catches} · 잘못 찍음 ${p.wrongTags}</p>` + notes(res);
-    }
+    const p0 = res.players[0] || {};
+    if (res.practice === "hide") return `<p class="big">버틴 시간 ${p0.hideSec || 0}초 · 잡힘 ${p0.caught || 0}번 · 맞고 도망 ${p0.escapes || 0}번 · 제자리에 숨은 시간 ${p0.correctSec || 0}초 · 점수 ${p0.score || 0}</p>` + notes(res);
+    if (res.practice === "seek") return `<p class="big">잡은 미믹 ${p0.catches || 0} · 맞힌 횟수 ${p0.hits || 0} · 진짜를 쏜 횟수 ${p0.realShots || 0} · 점수 ${p0.score || 0}</p>` + notes(res);
     const order = res.scores.map((v, i) => [v, i]).sort((a, b) => b[0] - a[0]);
     const max = Math.max(1, ...res.scores);
     let html = `<div class="rank">${order.map(([v, i], k) => `<div class="rank-row"><span class="rk">${k + 1}위</span><b style="color:${TEAM_COLORS[i]}">${i + 1}팀</b><div class="bar"><div style="width:${Math.max(3, v / max * 100)}%;background:${TEAM_COLORS[i]}"></div></div><span class="pt">${v}점</span></div>`).join("")}</div>`;
     const ps = res.players.slice().sort((a, b) => b.score - a.score);
-    html += `<h3>개인 기록</h3><table><tr><th>이름</th><th>팀</th><th>점수</th><th>찾아냄</th><th>잡힘</th><th>잘못 찍음</th><th>숨은 시간</th><th>제자리에 숨은 시간</th></tr>` +
-      ps.map(p => `<tr><td>${esc(p.name)}</td><td style="color:${TEAM_COLORS[p.team % 4]}">${p.team + 1}팀</td><td><b>${p.score}</b></td><td>${p.catches}</td><td>${p.caught}</td><td>${p.wrongTags}</td><td>${p.hideSec}초</td><td>${p.correctSec}초</td></tr>`).join("") + `</table>`;
+    html += `<h3>개인 기록</h3><table><tr><th>이름</th><th>팀</th><th>점수</th><th>잡음</th><th>도움</th><th>진짜 쏨</th><th>잡힘</th><th>도망</th><th>숨은 시간</th><th>제자리 시간</th></tr>` +
+      ps.map(p => `<tr><td>${esc(p.name)}</td><td style="color:${TEAM_COLORS[p.team % 4]}">${p.team + 1}팀</td><td><b>${p.score}</b></td><td>${p.catches}</td><td>${p.assists}</td><td>${p.realShots}</td><td>${p.caught}</td><td>${p.escapes}</td><td>${p.hideSec}초</td><td>${p.correctSec}초</td></tr>`).join("") + `</table>`;
     return html + notes(res);
   }
   function notes(res) {
-    const wrongTags = {}, wrongHides = [];
-    for (const l of res.log) {
-      if (l.type === "tagWrong") { const k = l.item; (wrongTags[k] = wrongTags[k] || { item: l.item, who: [] }).who.push(l.name); }
-      if (l.type === "hideWrong") wrongHides.push(l);
-    }
+    const wrongHides = res.log.filter(l => l.type === "hideWrong"), shots = (res.shots || []).filter(s => MM.ITEMS[s.item]);
     let html = `<h3>오답 노트</h3>`;
-    const tags = Object.values(wrongTags);
-    html += noteTable(tags.map(t => ({ a: itemName(t.item), b: esc(t.who.join(", ")), c: MM.ROOMS[MM.ITEMS[t.item].room].name, note: MM.ITEMS[t.item].note })), "진짜인데 가짜로 찍은 전시물 — 원래 그 전시실에 있는 게 맞았다", ["전시물", "찍은 학생", "맞는 전시실"]);
-    html += noteTable(wrongHides.map(l => ({ a: itemName(l.item), b: `${esc(l.name)} · ${l.at >= 0 ? esc(roomName(l.at)) : esc(l.where || "받침대 밖")}${l.caught ? " (잡힘)" : " (들키지 않음)"}`, c: MM.ROOMS[MM.ITEMS[l.item].room].name, note: MM.ITEMS[l.item].note })), "엉뚱한 곳에 숨은 미믹", ["전시물", "숨은 학생 · 숨은 곳", "있어야 할 전시실"]);
-    if (!tags.length && !wrongHides.length) html += `<p>틀린 것이 없습니다. 👏</p>`;
+    html += noteTable(wrongHides.map(l => ({ a: itemName(l.item), b: `${esc(l.name)} · ${l.at >= 0 ? esc(roomName(l.at)) : esc(l.where || "")}${l.caught ? " (잡힘)" : " (끝까지 안 들킴)"}`, c: MM.ROOMS[MM.ITEMS[l.item].room].name, note: MM.ITEMS[l.item].note })), "엉뚱한 전시실에 숨은 미믹", ["전시물", "숨은 학생 · 숨은 곳", "있어야 할 전시실"]);
+    html += noteTable(shots.map(t => ({ a: itemName(t.item), b: `${t.n}번 · ${esc(t.who.slice(0, 4).join(", "))}${t.who.length > 4 ? " 외" : ""}`, c: MM.ROOMS[MM.ITEMS[t.item].room].name, note: MM.ITEMS[t.item].note })), "학예사가 가짜로 의심해 쏜 진짜 전시물 — 그 전시실에 있는 게 맞았다", ["전시물", "쏜 횟수 · 학생", "맞는 전시실"]);
+    if (!wrongHides.length && !shots.length) html += `<p>틀린 것이 없습니다. 👏</p>`;
     return html;
   }
   function noteTable(rows, title, head) {

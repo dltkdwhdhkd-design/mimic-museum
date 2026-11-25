@@ -2,7 +2,9 @@
 
 지금 그림은 전부 코드가 즉석에서 그린다. 아래 이름으로 PNG를 만들어 주면 `img/`에 넣고 `js/art.js`의 `PROVIDED` 목록에 이름을 적어 바꾼다. 파일이 없거나 목록에 없으면 기본 그림이 나온다. 그림은 세로 높이가 게임 안에서 정해져 있어서, **가로·세로 비율을 아래와 맞춰야** 바닥 차지 넓이와 그림이 어긋나지 않는다.
 
-**전시물 606개는 바꾸지 않는다.** 진짜 전시물과 받침대 위 미믹이 같은 그림 함수로 그려져야 구별이 안 되는데, 전시물마다 그림을 받으면 화풍이 섞이고 양도 너무 많다. 전시물은 Twemoji와 코드 그림(암석·광물·행성·별·분자·세포 등) 그대로 둔다. 효과가 큰 순서는 학예사 → 받침대 → 가구.
+**전시물 606개는 바꾸지 않는다.** 진짜 물건과 멈춰 있는 미믹이 같은 그림 함수로 그려져야 구별이 안 되는데, 전시물마다 그림을 받으면 화풍이 섞이고 양도 너무 많다. 전시물은 Twemoji와 코드 그림(암석·광물·행성·별·분자·세포 등) 그대로 둔다. 효과가 큰 순서는 학예사 → 가구(미믹이 잡동사니로 변신하는 화분·휴지통·소화기·긴 의자·안내판) → 받침대.
+
+**눈알은 그리지 않는다.** 움직이는 미믹의 눈알과 '진짜' 도장은 게임이 그림 위에 덧그린다. 가구 그림에 얼굴이 있으면 진짜 가구도 얼굴이 있게 되어 숨바꼭질이 깨진다.
 
 ## 공통 앞부분
 아래 문단을 그대로 붙이고 끝에 물건 설명만 바꾼다.
@@ -20,8 +22,8 @@
 - 물건 설명:
   > a museum display plinth, ivory marble column with a slightly wider top slab and a dark base, small blank brass nameplate on the front, the top surface flat and empty.
 
-## 가구 (선택)
-모두 공통 앞부분을 쓰고 끝의 설명만 바꾼다.
+## 가구
+모두 공통 앞부분을 쓰고 끝의 설명만 바꾼다. 위의 다섯(`plant`·`trash`·`extinguisher`·`bench`·`poster`)은 미믹이 변신하는 잡동사니이기도 해서 자주 보인다.
 
 | 파일 | 비율 (가로:세로) | 물건 설명 |
 |---|---|---|
@@ -30,6 +32,8 @@
 | `desk` | 1.75 : 1 | a navy museum information desk with a small "information" sign shape (no letters) |
 | `vending` | 1 : 1.85 | a red drink vending machine with a lit glass front full of colorful cans |
 | `rope` | 1.7 : 1 | two brass stanchion posts joined by a sagging red velvet rope |
+| `trash` | 1 : 1.3 | a dark green metal museum trash bin with a lid and a small recycling label (no text) |
+| `extinguisher` | 1 : 2 | a red fire extinguisher standing on the floor, black hose and handle, white label without text |
 | `poster` | 1 : 1.4 | a standing exhibition sign board on a single pole, blank poster with simple shapes, no text |
 
 ## 넣는 법

@@ -1,6 +1,6 @@
 // 과학관 지도 — 시드 하나로 교사와 학생 기기가 똑같은 건물을 만든다.
 // 방(칸) 격자: 칸 하나의 안쪽은 8×8 타일, 벽 두께 1. 가운데 칸이 중앙 로비(시작 위치).
-// 타일: 0 바닥, 1 벽, 2 받침대(지나갈 수 없지만 시야는 막지 않음), 3 가구
+// 타일: 0 바닥, 1 벽, 2 받침대(지나갈 수 없지만 시야는 막지 않음), 3 가구(화분·휴지통·소화기 등 — 잡동사니 미믹이 섞여 들 곳)
 window.Museum = (function () {
   const IN = 8, P = IN + 1;
   const T_FLOOR = 0, T_WALL = 1, T_STAND = 2, T_DECOR = 3;
@@ -96,11 +96,15 @@ window.Museum = (function () {
         const nStands = Math.min(cand.length, nReal + 3);
         for (let s = 0; s < nStands; s++) { const p = cand[s]; grid[p.y * W + p.x] = T_STAND; stands.push({ id: stands.length, x: p.x, y: p.y, cell: ci, room: c.room, item: s < nReal ? items[s] : -1 }); }
         pool[c.room] = items.slice(nReal);
+        // 구석 가구 2~3개와 가끔 가운데 긴 의자: 잡동사니로 변신한 미믹이 섞여 들 곳
+        const corners = shuffle([[0, 0], [7, 0], [0, 7], [7, 7]], r), kinds = shuffle(["plant", "trash", "extinguisher", "plant"], r), nC = 2 + Math.floor(r() * 2);
+        for (let k2 = 0; k2 < nC; k2++) { const x = c.x0 + corners[k2][0], y = c.y0 + corners[k2][1]; if (nearDoor(x, y) || grid[y * W + x] !== T_FLOOR) continue; grid[y * W + x] = T_DECOR; decor.push({ x, y, kind: kinds[k2] }); }
+        if (r() < 0.35) { const x = c.x0 + 3 + Math.floor(r() * 2), y = c.y0 + 3 + Math.floor(r() * 2); if (!nearDoor(x, y) && grid[y * W + x] === T_FLOOR) { grid[y * W + x] = T_DECOR; decor.push({ x, y, kind: "bench" }); } }
       } else if (c.kind === "lobby") {
         const cx = c.x0 + 3, cy = c.y0 + 3;
-        for (const [dx, dy, kind] of [[0, 0, "desk"], [1, 0, "desk"], [-2, 3, "bench"], [3, 3, "bench"], [-2, -2, "plant"], [3, -2, "plant"]]) { const x = cx + dx, y = cy + dy; if (x < c.x0 || x > c.x1 || y < c.y0 || y > c.y1 || nearDoor(x, y)) continue; grid[y * W + x] = T_DECOR; decor.push({ x, y, kind }); }
+        for (const [dx, dy, kind] of [[0, 0, "desk"], [1, 0, "desk"], [-2, 3, "bench"], [3, 3, "bench"], [-2, -2, "plant"], [3, -2, "plant"], [-3, 4, "trash"], [4, 4, "extinguisher"]]) { const x = cx + dx, y = cy + dy; if (x < c.x0 || x > c.x1 || y < c.y0 || y > c.y1 || nearDoor(x, y)) continue; grid[y * W + x] = T_DECOR; decor.push({ x, y, kind }); }
       } else {
-        const spots = shuffle([[1, 1, "plant"], [6, 1, "plant"], [1, 6, "vending"], [6, 6, "plant"], [3, 3, "bench"], [4, 4, "bench"], [3, 6, "poster"], [5, 1, "poster"], [2, 3, "rope"]], r).slice(0, 4 + Math.floor(r() * 2));
+        const spots = shuffle([[1, 1, "plant"], [6, 1, "plant"], [1, 6, "vending"], [6, 6, "plant"], [3, 3, "bench"], [4, 4, "bench"], [3, 6, "poster"], [5, 1, "poster"], [2, 3, "rope"], [0, 4, "trash"], [7, 3, "extinguisher"], [4, 0, "trash"]], r).slice(0, 5 + Math.floor(r() * 3));
         for (const [ix, iy, kind] of spots) { const x = c.x0 + ix, y = c.y0 + iy; if (nearDoor(x, y)) continue; grid[y * W + x] = T_DECOR; decor.push({ x, y, kind }); }
       }
     }
@@ -183,11 +187,33 @@ window.Museum = (function () {
   }
   // 빈 바닥 칸 하나 (먼 곳 고르기용)
   function floorTiles() { const out = []; if (!M) return out; for (let y = 0; y < M.H; y++) for (let x = 0; x < M.W; x++) if (M.grid[y * M.W + x] === T_FLOOR && M.cellOf[y * M.W + x] >= 0 && !hits(x + 0.5, y + 0.5, 0.3)) out.push({ x: x + 0.5, y: y + 0.5 }); return out; }
+  // 바닥 칸을 따라가는 최단 경로(로봇용). 목표가 막힌 칸이면 그 옆 바닥까지
+  function path(sx, sy, tx, ty) {
+    if (!M) return [];
+    const W = M.W, H = M.H, s = Math.floor(sy) * W + Math.floor(sx);
+    let t = Math.floor(ty) * W + Math.floor(tx);
+    const exact = M.grid[t] === T_FLOOR;
+    if (!exact) {
+      let best = -1, bd = 1e9;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) { const x = Math.floor(tx) + dx, y = Math.floor(ty) + dy; if (x < 0 || y < 0 || x >= W || y >= H || M.grid[y * W + x] !== T_FLOOR) continue; const d = Math.hypot(dx, dy); if (d < bd) { bd = d; best = y * W + x; } }
+      if (best < 0) return []; t = best;
+    }
+    if (s < 0 || s >= W * H) return [];
+    const prev = new Int32Array(W * H).fill(-1), q = [s]; prev[s] = s; let qi = 0;
+    while (qi < q.length) {
+      const c = q[qi++]; if (c === t) break; const x = c % W, y = (c - x) / W;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const n = ny * W + nx; if (prev[n] !== -1 || M.grid[n] !== T_FLOOR) continue; prev[n] = c; q.push(n); }
+    }
+    if (prev[t] === -1) return [];
+    const out = []; for (let c = t; c !== s; c = prev[c]) out.push({ x: c % W + 0.5, y: Math.floor(c / W) + 0.5 }); out.reverse();
+    if (exact && out.length) out[out.length - 1] = { x: tx, y: ty };
+    return out;
+  }
   // 로비에서 모든 칸에 갈 수 있는지(시험용)
   function reachable() {
     if (!M) return 0; const start = M.spawns[0]; const seen = new Uint8Array(M.W * M.H); const q = [[Math.floor(start.x), Math.floor(start.y)]]; seen[q[0][1] * M.W + q[0][0]] = 1; let qi = 0;
     while (qi < q.length) { const [x, y] = q[qi++]; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= M.W || ny >= M.H || seen[ny * M.W + nx] || M.grid[ny * M.W + nx] !== T_FLOOR) continue; seen[ny * M.W + nx] = 1; q.push([nx, ny]); } }
     return seen;
   }
-  return { generate, gridFor, use, get cur() { return M; }, tile, solid, opaque, cellAt, cellIndexAt, standAtTile, hits, move, los, stepOff, floorTiles, reachable, T_FLOOR, T_WALL, T_STAND, T_DECOR, IN, P, _rng: rng, _shuffle: shuffle };
+  return { generate, gridFor, use, get cur() { return M; }, tile, solid, opaque, cellAt, cellIndexAt, standAtTile, hits, move, los, stepOff, floorTiles, reachable, path, T_FLOOR, T_WALL, T_STAND, T_DECOR, IN, P, _rng: rng, _shuffle: shuffle };
 })();

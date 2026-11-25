@@ -6,7 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="format-detection" content="telephone=no">
 <title>미믹 뮤지엄 — MIMIC MUSEUM</title>
-<link rel="stylesheet" href="css/style.css?v=20261125">
+<link rel="stylesheet" href="css/style.css?v=20261126">
 </head>
 <body>
 
@@ -16,7 +16,7 @@
     <div class="sub">중학교 과학 전 단원 · 팀 대항 변장 숨바꼭질</div>
     <h1 id="title-h1"><span>MIMIC</span><span>MUSEUM</span></h1>
     <div class="kor">미믹 뮤지엄</div>
-    <p class="story">문 닫은 과학관에 전시물로 변신하는 <b>미믹</b>이 숨어들었다. 미믹은 자기 전시물이 원래 있어야 할 전시실에 숨고, <b>학예사</b>는 ‘여기 있으면 안 되는 전시물’을 찾아 찍는다.</p>
+    <p class="story">문 닫은 과학관에 물건으로 변신하는 <b>미믹</b>이 숨어들었다. 미믹은 전시물이나 화분·휴지통으로 변신해 아무 데나 숨고, <b>학예사</b>는 수상한 물건을 도장총으로 쏜다. 진짜를 쏘면 학예사 체력이 깎인다. 맞은 미믹은 눈알을 달고 튀어 도망친다!</p>
     <div class="btns">
       <button id="btn-resume" class="big primary" style="display:none">이전 게임 이어하기</button>
       <button id="btn-teacher" class="big">교사 · 방 만들기</button>
@@ -44,8 +44,7 @@
       <label>라운드 <select id="set-rounds"></select></label>
       <label>숨는 시간 <input id="set-hide" type="range" min="20" max="90" step="5"> <span id="set-hide-v"></span></label>
       <label>찾는 시간 <input id="set-seek" type="range" min="1.5" max="5" step="0.5"> <span id="set-seek-v"></span></label>
-      <label>미믹 기척 소리 <select id="set-beep"><option value="20">20초마다</option><option value="30">30초마다</option><option value="45">45초마다</option><option value="0">끄기</option></select></label>
-      <label>학예사 하트 <input id="set-hearts" type="range" min="2" max="8" step="1"> <span id="set-hearts-v"></span></label>
+      <label>미믹이 저절로 내는 소리 <select id="set-beep"><option value="20">20초쯤마다</option><option value="30">30초쯤마다</option><option value="45">45초쯤마다</option><option value="0">끄기</option></select></label>
       <label>전시관 크기 <select id="set-size"><option value="auto">인원에 맞게</option><option value="small">작게</option><option value="medium">보통</option><option value="large">크게</option></select></label>
     </div>
     <h3>단원 <button id="units-all" class="mini">전체</button> <button id="units-none" class="mini ghost">모두 빼기</button></h3>
@@ -84,17 +83,18 @@
   <div id="aim-label" style="display:none"></div>
   <div id="toast"></div>
   <div id="feed"></div>
-  <div id="lock-hint">화면을 클릭하면 마우스로 둘러봅니다 · WASD 이동 · 클릭/E 행동 · 우클릭/Q 보조 · M 지도 · Esc 해제</div>
+  <div id="lock-hint"></div>
   <button id="btn-sub" style="display:none"></button>
+  <button id="btn-dash" style="display:none"></button>
   <button id="btn-main" style="display:none"></button>
   <div id="offers" style="display:none">
     <div class="offer-box">
-      <div class="label">변신할 전시물</div>
+      <div class="label">무엇으로 변신할까?</div>
       <p id="offer-hint"></p>
       <div class="offer-row">
-        <button id="offer-0" class="offer"><canvas width="96" height="96"></canvas><span class="nm"></span><span class="key">1</span></button>
-        <button id="offer-1" class="offer"><canvas width="96" height="96"></canvas><span class="nm"></span><span class="key">2</span></button>
-        <button id="offer-2" class="offer"><canvas width="96" height="96"></canvas><span class="nm"></span><span class="key">3</span></button>
+        <button id="offer-0" class="offer"><canvas width="96" height="96"></canvas><span class="nm"></span><span class="tag"></span><span class="key">1</span></button>
+        <button id="offer-1" class="offer"><canvas width="96" height="96"></canvas><span class="nm"></span><span class="tag"></span><span class="key">2</span></button>
+        <button id="offer-2" class="offer"><canvas width="96" height="96"></canvas><span class="nm"></span><span class="tag"></span><span class="key">3</span></button>
       </div>
       <button id="offer-close" class="ghost">닫기 (지금 모습 유지)</button>
     </div>
@@ -155,17 +155,17 @@
 
 <script src="lib/mqtt.min.js"></script>
 <script src="lib/peerjs.min.js"></script>
-<script src="js/content.js?v=20261125"></script>
-<script src="js/emoji-map.js?v=20261125"></script>
-<script src="js/art.js?v=20261125"></script>
-<script src="js/museum.js?v=20261125"></script>
-<script src="js/net.js?v=20261125"></script>
-<script src="js/sound.js?v=20261125"></script>
-<script src="js/options.js?v=20261125"></script>
-<script src="js/fps.js?v=20261125"></script>
-<script src="js/rules.js?v=20261125"></script>
-<script src="js/client.js?v=20261125"></script>
-<script src="js/hostview.js?v=20261125"></script>
-<script src="js/main.js?v=20261125"></script>
+<script src="js/content.js?v=20261126"></script>
+<script src="js/emoji-map.js?v=20261126"></script>
+<script src="js/art.js?v=20261126"></script>
+<script src="js/museum.js?v=20261126"></script>
+<script src="js/net.js?v=20261126"></script>
+<script src="js/sound.js?v=20261126"></script>
+<script src="js/options.js?v=20261126"></script>
+<script src="js/fps.js?v=20261126"></script>
+<script src="js/rules.js?v=20261126"></script>
+<script src="js/client.js?v=20261126"></script>
+<script src="js/hostview.js?v=20261126"></script>
+<script src="js/main.js?v=20261126"></script>
 </body>
 </html>

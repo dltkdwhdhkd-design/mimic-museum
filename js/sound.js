@@ -35,7 +35,23 @@ window.Sound = (function () {
   function voice(seed) { return 520 + (seed * 97 % 11) * 60; }
   const kinds = {
     beep(o) { const f = voice(o.seed || 0); tone(f, f * 1.6, 0.16, "square", 0.16 * o.g, o.pan, o.delay); tone(f * 1.6, f * 1.2, 0.12, "square", 0.12 * o.g, o.pan, (o.delay || 0) + 0.17); },
-    taunt(o) { const f = voice(o.seed || 0) * 0.7, k = (o.seed || 0) % 3; if (k === 0) { tone(f, f * 2.2, 0.35, "sawtooth", 0.14 * o.g, o.pan, 0, [9, 30]); tone(f * 2.2, f * 0.8, 0.4, "sawtooth", 0.12 * o.g, o.pan, 0.36, [9, 30]); } else if (k === 1) { for (let i = 0; i < 4; i++) tone(f * (1 + i * 0.25), f * (1.1 + i * 0.25), 0.1, "square", 0.12 * o.g, o.pan, i * 0.11); } else { tone(f * 1.5, f * 0.5, 0.6, "triangle", 0.2 * o.g, o.pan, 0, [6, 40]); } },
+    // 미믹 소리: 변신한 물건마다 다섯 가지 중 하나 (꾸이익·꽥꽥·띠용·피리·뿌웅)
+    taunt(o) {
+      const sd = Math.abs(o.seed || 0), f = voice(sd) * 0.7, k = sd % 5, d = o.delay || 0;
+      if (k === 0) { tone(f, f * 2.2, 0.35, "sawtooth", 0.14 * o.g, o.pan, d, [9, 30]); tone(f * 2.2, f * 0.8, 0.4, "sawtooth", 0.12 * o.g, o.pan, d + 0.36, [9, 30]); }
+      else if (k === 1) { for (let i = 0; i < 2; i++) { tone(f * 0.9, f * 0.55, 0.16, "sawtooth", 0.16 * o.g, o.pan, d + i * 0.22, [40, 25]); noise(0.1, 0.12 * o.g, o.pan, 1400, d + i * 0.22, 3); } }
+      else if (k === 2) { tone(f * 0.45, f * 1.6, 0.55, "sine", 0.22 * o.g, o.pan, d, [16, 70]); }
+      else if (k === 3) { tone(f * 1.4, f * 3, 0.32, "sine", 0.17 * o.g, o.pan, d, [5, 12]); tone(f * 3, f * 1.1, 0.4, "sine", 0.17 * o.g, o.pan, d + 0.32, [5, 12]); }
+      else { tone(95, 70, 0.55, "sawtooth", 0.2 * o.g, o.pan, d, [28, 18]); noise(0.45, 0.1 * o.g, o.pan, 260, d, 2); }
+    },
+    shot(o) { noise(0.07, 0.32 * o.g, o.pan, 1100, 0, 1.2); tone(520, 160, 0.1, "square", 0.07 * o.g, o.pan); },
+    hit(o) { tone(900, 1600, 0.08, "square", 0.13 * o.g, o.pan); tone(1500, 650, 0.14, "triangle", 0.15 * o.g, o.pan, 0.07); },
+    real(o) { tone(170, 110, 0.18, "square", 0.11 * o.g, o.pan); noise(0.09, 0.22 * o.g, o.pan, 320); },
+    shield(o) { tone(1800, 1800, 0.07, "sine", 0.1 * o.g, o.pan); tone(2500, 2500, 0.12, "sine", 0.08 * o.g, o.pan, 0.06); },
+    escape(o) { tone(300, 900, 0.22, "triangle", 0.15 * o.g, 0); tone(600, 1300, 0.2, "triangle", 0.1 * o.g, 0, 0.12); },
+    dash(o) { tone(200, 560, 0.13, "sine", 0.16 * o.g, o.pan, 0, [30, 40]); },
+    hop(o) { tone(260 + Math.random() * 90, 480, 0.05, "sine", 0.05 * o.g, o.pan); },
+    closing(o) { for (let i = 0; i < 6; i++) tone(i % 2 ? 660 : 880, i % 2 ? 660 : 880, 0.17, "square", 0.08 * o.g, 0, i * 0.2); },
     stamp(o) { noise(0.12, 0.5 * o.g, o.pan, 180, 0, 0.8); tone(110, 60, 0.18, "sine", 0.45 * o.g, o.pan); },
     ding(o) { tone(880, 880, 0.25, "sine", 0.22 * o.g, o.pan); tone(1320, 1320, 0.4, "sine", 0.2 * o.g, o.pan, 0.12); },
     buzzer(o) { tone(150, 140, 0.45, "square", 0.18 * o.g, o.pan); tone(155, 145, 0.45, "square", 0.12 * o.g, o.pan); },
