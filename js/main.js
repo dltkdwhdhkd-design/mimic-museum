@@ -78,8 +78,10 @@
     },
     loop() {
       const now = performance.now(); let dt = (now - this.lastTick) / 1000; this.lastTick = now;
-      if (dt > 1) dt = 0.05;
-      Rules.tick(this.W, dt); this.flush();
+      if (dt > 3) dt = 0.05;            // 탭이 오래 멈췄던 것은 건너뛴다
+      // 화면 그리기가 무거워 틱이 늦게 와도 게임 시간은 제대로 흐르게, 0.1초씩 나눠 돌린다
+      for (let left = dt; left > 1e-6; left -= 0.1) Rules.tick(this.W, Math.min(0.1, left));
+      this.flush();
       this.snapAcc += dt; if (this.snapAcc >= 0.1) { this.snapAcc = 0; Net.sendToClients(Rules.snapshot(this.W)); }
       this.viewAcc += dt; if (this.viewAcc >= 0.1) { this.viewAcc = 0; if ($("s-host-console").style.display !== "none") HostView.render(this.W); updateConsoleButtons(); }
       if (this.final) { this.endAcc += dt; if (this.endAcc >= 3 && this.endSends < 10) { this.endAcc = 0; this.endSends++; Net.sendToClients({ t: "ev", ...this.final }); } if (!this.shownEnd && !this.localId && !this.practice) { this.shownEnd = true; showHostResults(); } }

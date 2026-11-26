@@ -1,5 +1,5 @@
 // 그림 — 전시물(이모지 아틀라스 + 코드로 그린 암석·행성·분자 등), 받침대, 학예사, 가구, 벽·표지판
-// 그림 파일(img/<이름>.png)을 넣으면 그 그림을 쓴다: Art.PROVIDED 목록 참고(docs/art-requests.md)
+// 3D 화면의 받침대·가구·학예사는 블렌더 모델이다(docs/blender.md). 가구 작은 그림은 3D 모델을 찍어 provide()로 받는다.
 window.Art = (function () {
   const O = 96;                     // 전시물 그림 크기
   const STAND_W = 96, STAND_H = 176, STAND_TOP = 92;   // 받침대 합성 그림 (위 92px가 전시물 자리)
@@ -7,7 +7,7 @@ window.Art = (function () {
   const cache = new Map();
   let atlas = null, atlasReady = false; const onReady = [];
   const provided = {};
-  // 교사가 넣은 그림(있으면 우선). img/ 폴더에 PNG를 넣고 여기에 이름을 적는다 (docs/art-requests.md)
+  // 예전 2D용 그림 바꾸기: img/ 폴더에 PNG를 넣고 여기에 이름을 적는다. 3D 화면에는 쓰이지 않는다(모델은 docs/blender.md)
   // 쓸 수 있는 이름: curator, curator1~curator4(팀별), pedestal, bench, plant, desk, vending, rope, poster, trash, extinguisher
   const PROVIDED = [];
 
@@ -498,9 +498,11 @@ window.Art = (function () {
   // 작은 아이콘(HUD용): 전시물 그림을 원하는 크기 캔버스로
   function thumb(item, size) { const c = mk(size, size); c.getContext("2d").drawImage(object(item), 0, 0, size, size); return c; }
   function clear() { cache.clear(); }
+  // 3D 모델로 그린 가구 그림 등을 넣어 쓴다(변신 고르기·HUD·관제실 지도)
+  function provide(name, img) { provided[name] = img; cache.delete("d" + name); }
 
   const WING_COLORS = ["#c0504d", "#4f81bd", "#9bbb59", "#8064a2", "#4bacc6", "#f79646", "#2c7a6b", "#b5874b", "#c2185b", "#5d6d7e", "#7cb342", "#6d4c41", "#00897b", "#3949ab", "#e65100", "#8e24aa"];
   function wingColor(wingId) { const w = MM.WING_BY_ID[wingId]; return w ? WING_COLORS[w.index % WING_COLORS.length] : "#8a7a5a"; }
 
-  return { load, whenReady, object, exhibit, loose, curator, decor, withEyes, stamped, wall, sign, restSign, frameArt, thumb, clear, wingColor, STAND_H, STAND_W, get ready() { return atlasReady; }, _hash: hash, _rng: rng };
+  return { load, whenReady, object, exhibit, loose, curator, decor, withEyes, stamped, wall, sign, restSign, frameArt, thumb, clear, provide, wingColor, STAND_H, STAND_W, get ready() { return atlasReady; }, _hash: hash, _rng: rng };
 })();

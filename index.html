@@ -6,7 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="format-detection" content="telephone=no">
 <title>미믹 뮤지엄 — MIMIC MUSEUM</title>
-<link rel="stylesheet" href="css/style.css?v=20261126">
+<link rel="stylesheet" href="css/style.css?v=20261127">
+<script type="importmap">{"imports":{"three":"./vendor/three/build/three.module.js","three/addons/":"./vendor/three/examples/jsm/"}}</script>
 </head>
 <body>
 
@@ -70,6 +71,7 @@
 
 <!-- 게임 -->
 <section id="s-game" class="screen" style="display:none">
+  <canvas id="game-3d"></canvas>
   <canvas id="game-canvas"></canvas>
   <div id="touch-zone"></div>
   <div id="stick"><div id="stick-knob"></div></div>
@@ -155,17 +157,18 @@
 
 <script src="lib/mqtt.min.js"></script>
 <script src="lib/peerjs.min.js"></script>
-<script src="js/content.js?v=20261126"></script>
-<script src="js/emoji-map.js?v=20261126"></script>
-<script src="js/art.js?v=20261126"></script>
-<script src="js/museum.js?v=20261126"></script>
-<script src="js/net.js?v=20261126"></script>
-<script src="js/sound.js?v=20261126"></script>
-<script src="js/options.js?v=20261126"></script>
-<script src="js/fps.js?v=20261126"></script>
-<script src="js/rules.js?v=20261126"></script>
-<script src="js/client.js?v=20261126"></script>
-<script src="js/hostview.js?v=20261126"></script>
-<script src="js/main.js?v=20261126"></script>
+<script src="js/content.js?v=20261127"></script>
+<script src="js/emoji-map.js?v=20261127"></script>
+<script src="js/art.js?v=20261127"></script>
+<script src="js/museum.js?v=20261127"></script>
+<script src="js/net.js?v=20261127"></script>
+<script src="js/sound.js?v=20261127"></script>
+<script src="js/options.js?v=20261127"></script>
+<script src="js/view3d.js?v=20261127"></script>
+<script src="js/rules.js?v=20261127"></script>
+<script src="js/client.js?v=20261127"></script>
+<script src="js/hostview.js?v=20261127"></script>
+<script src="js/main.js?v=20261127"></script>
+<script type="module" src="js/three-boot.js?v=20261127"></script>
 </body>
 </html>

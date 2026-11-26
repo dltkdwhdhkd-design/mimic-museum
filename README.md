@@ -5,6 +5,7 @@
 - 플레이: https://dltkdwhdhkd-design.github.io/mimic-museum/
 - 1~3학년 과학 23개 단원 · 전시동 33개 · 전시실 102개 · 전시물 606개
 - 한 방에 16명까지, 2~4팀
+- 3D 화면(Three.js). 받침대·가구·학예사·도장총은 블렌더로 만든 모델
 
 ## 수업에서 쓰는 법
 1. 교사: TV에 이 페이지를 띄우고 **교사 · 방 만들기** → 4자리 방 코드가 나온다. 선생님도 같이 하려면 **교사 · 방 만들고 같이 하기**(게임 중에는 위쪽 "관제" 버튼과 관제 화면의 "내 게임 화면" 버튼으로 오간다).
@@ -59,8 +60,10 @@
 모든 전시실과 전시물은 `js/content.js` 한 파일에 있다. 단원 → 전시동 → 전시실(분류 범주) → 전시물 순서다. **[docs/content.md](docs/content.md)가 전체 검토표**이자 정답표다. 분류가 틀렸거나 학교 교과서와 용어가 다르면 `js/content.js`의 해당 줄을 고치거나 빼면 된다. 전시물 줄 끝의 설명은 잡혔을 때와 오답 노트에 나온다. 고친 뒤 `node tools/build_content_doc.cjs`로 검토표를 다시 만든다.
 - 학년 묶음은 2022 개정 교과서 기준이다. 올해 3학년은 2015 개정이라 단원 이름이 다를 수 있으니, 대기실에서 단원을 하나씩 골라 쓰면 된다.
 
-## 그림
-전시물은 Twemoji 그림과 코드로 그린 그림(암석·광물·행성·별·성운·분자·원자·이온·세포·혈구 등)을 받침대 위에 합성해 만든다. 진짜 물건과 멈춰 있는 미믹은 같은 그림 함수로 그리므로 그림만 봐서는 구별되지 않는다. 눈알과 '진짜' 도장은 게임이 그 위에 덧그린다. 학예사·받침대·가구는 `img/`에 정해진 이름의 PNG를 넣으면 바뀐다. 규격과 요청 문구는 [docs/art-requests.md](docs/art-requests.md).
+## 그림과 3D
+- 화면은 Three.js 3D다. 벽·바닥·천장·조명·전시실 표지판은 그 라운드 지도에 맞춰 코드가 짓고, 받침대·가구·학예사·도장총은 블렌더 파이썬 스크립트로 만든 모델(`assets/models/museum.glb`)을 쓴다. 모델 고치는 법은 [docs/blender.md](docs/blender.md).
+- 전시물 606개는 Twemoji 그림과 코드로 그린 그림(암석·광물·행성·별·성운·분자·원자·이온·세포·혈구 등)을 받침대 위에 세운 그림판이다. 진짜 물건과 멈춰 있는 미믹을 같은 그림으로 그리므로 그림만 봐서는 구별되지 않는다. 눈알과 '진짜' 도장은 게임이 그 위에 덧그린다.
+- 처음 들어올 때 3D 엔진과 모델을 한 번 받는다(1MB가 안 된다). 오래된 폰에서 끊기면 설정(⚙)의 화질을 낮춘다(화면 해상도를 줄인다). WebGL이 꺼진 기기에서는 안내 문구가 뜬다.
 
 ## 연결 방식
 서버 없이 공개 MQTT 중계 3곳(EMQX, HiveMQ, Mosquitto)을 동시에 쓰고, PeerJS 직접 연결을 예비로 둔다. 판정은 교사 브라우저가 맡으므로 게임 중에는 교사 화면을 닫거나 새로고침하지 않는다(닫으면 그 방은 복구할 수 없어 새 방을 만들어야 한다). 내용이 공개 서버를 지나므로 실명 대신 별명을 쓴다.
@@ -74,8 +77,9 @@
 - `tools/gallery.html`: 전시물 그림을 한눈에 보기(`?w=rocks,deepsky`처럼 전시동 id로 거르기).
 - `tools/build_emoji.cjs`: 이모지 아틀라스(`img/emoji.png`, `js/emoji-map.js`) 다시 만들기. Twemoji SVG 폴더와 sharp가 필요하다.
 - `tools/build_content_doc.cjs`: `docs/content.md` 다시 만들기.
+- `python3 tools/blender/build.py`: 3D 모델 다시 뽑기(처음 한 번 `pip install bpy`). [docs/blender.md](docs/blender.md)
 
 ## 출처
 - 이모지 그림: [Twemoji](https://github.com/jdecked/twemoji) (Twitter, Inc. 외 기여자, 그림 CC-BY 4.0)
-- 외부 라이브러리: MQTT.js, PeerJS (`lib/`에 포함)
+- 외부 라이브러리: MQTT.js, PeerJS (`lib/`에 포함), three.js r187 (MIT, `vendor/three/`에 포함)
 - 소리는 모두 Web Audio로 즉석에서 만든다.

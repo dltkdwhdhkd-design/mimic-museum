@@ -1,11 +1,11 @@
-// 학생 화면 — 학예사는 1인칭 도장총, 미믹은 3인칭(변신·숨기·튀어 도망), HUD, 소리
+// 학생 화면 — 3D(View3D)에 학예사는 1인칭 도장총, 미믹은 3인칭(변신·숨기·튀어 도망). 위에 2D 겹 화면으로 HUD·조준선·안내
 window.Client = (function () {
   const TEAM_COLORS = ["#e2574c", "#4a8fe2", "#46b16a", "#e0a63a"];
   const el = id => document.getElementById(id);
   const isTouch = ("ontouchstart" in window) && window.matchMedia && matchMedia("(pointer: coarse)").matches;
   const DECOR_H = { bench: 0.55, plant: 1.0, desk: 0.7, vending: 1.45, rope: 0.62, poster: 1.1, trash: 0.55, extinguisher: 0.62 };
   const STAND_SPR = 1.32, LOOSE_SPR = 0.66;
-  let cv, ctx, W = 800, H = 600;
+  let cv, ctx, cv3, W = 800, H = 600, camDist = 0, objA = 0, lastQ = null, view3dOk = true;
   let me = null, names = {}, teams = {}, settings = {}, practice = null, onEnd = null;
   let running = false, raf = 0, last = 0, inputBound = false, connectionReady = true;
   let S = null, info = null, phase = "lobby", role = "seek", team = 0, closing = false;
@@ -13,7 +13,7 @@ window.Client = (function () {
   let item = -1, offers = [], perch = -1, perchFrom = null, perchPending = null, hp = 100, flags = 0, myScore = 0;
   let others = new Map(), aim = null, lastPos = 0, lastSentKey = "", tauntLocal = -99, pickT = 0;
   let firing = false, fireT = 0, shots = [], dashT = 0, dashCd = 0;
-  let stamps = new Map(), puffs = [], cam = { x: 0, y: 0, d: 2 };
+  let stamps = new Map(), puffs = [];
   let fx = { flash: 0, flashCol: "255,255,255", shake: 0, recoil: 0, marker: null, hurt: 0, myHit: 0 };
   let toast = { text: "", t: 0, big: false }, feed = [], mapOpen = false, offerOpen = false, banner = null, caughtMsg = null;
   let resetTouch = () => {}, stepT = 0;
@@ -22,7 +22,13 @@ window.Client = (function () {
   function start(opts) {
     stop();
     me = opts.id; names = opts.names || {}; teams = opts.teams || {}; settings = opts.settings || {}; practice = opts.practice || null; onEnd = opts.onEnd;
-    cv = el("game-canvas"); ctx = cv.getContext("2d");
+    cv = el("game-canvas"); ctx = cv.getContext("2d"); cv3 = el("game-3d");
+    View3D.whenThree().then(() => {
+      if (!View3D.init(cv3)) { view3dOk = false; return; }
+      resize();
+      View3D.load().then(() => { for (const e of Rules.EVERYDAY) { const t = View3D.thumb(e.kind, 128); if (t) Art.provide(e.kind, t); } if (Museum.cur && !View3D.built) View3D.setMuseum(Museum.cur); })
+        .catch(err => { console.warn(err); view3dOk = false; });
+    });
     Art.load(); resize(); window.addEventListener("resize", resize);
     document.body.classList.toggle("pc", !isTouch);
     setupInput(); resetControls(); others.clear(); feed = []; S = null; stamps.clear(); puffs = [];
@@ -34,14 +40,14 @@ window.Client = (function () {
   }
   function stop() { running = false; cancelAnimationFrame(raf); resetControls(); if (document.pointerLockElement) document.exitPointerLock(); closeOffers(); }
   function resetControls() { keys = {}; input.fwd = input.strafe = 0; moving = false; firing = false; resetTouch(); }
-  function resize() { if (!cv) return; W = cv.width = window.innerWidth; H = cv.height = window.innerHeight; Fps.setup(W, H); }
+  function resize() { if (!cv) return; W = cv.width = window.innerWidth; H = cv.height = window.innerHeight; lastQ = Options.get("quality"); View3D.resize(W, H); }
   function setConnectionLost(lost) { connectionReady = !lost; if (lost) { resetControls(); mapOpen = false; if (document.pointerLockElement) document.exitPointerLock(); } }
 
   function applyRound(r, quiet) {
     if (!r) return;
     const same = info && info.n === r.n && info.seed === r.seed;
     info = r;
-    if (!same) { Museum.use(Museum.generate({ seed: r.seed, wings: r.wings, cols: r.cols, rows: r.rows })); mapImg = null; }
+    if (!same) { Museum.use(Museum.generate({ seed: r.seed, wings: r.wings, cols: r.cols, rows: r.rows })); mapImg = null; View3D.setMuseum(Museum.cur); }
     team = teams[me] != null ? teams[me] : team;
     role = r.hiders.includes(team) ? "hide" : "seek";
     if (!same) {
@@ -355,7 +361,7 @@ window.Client = (function () {
   // ---------- 루프 ----------
   function frame(now) {
     if (!running) return;
-    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    const dt = Math.min(0.1, (now - last) / 1000); last = now;   // 느린 기기(10fps)까지는 제 속도로 움직인다
     update(dt, now); render(now);
     raf = requestAnimationFrame(frame);
   }
@@ -369,7 +375,7 @@ window.Client = (function () {
     return false;
   }
   function update(dt, now) {
-    if (!connectionReady) { moving = false; firing = false; updateCam(0); updateHud(now); return; }
+    if (!connectionReady) { moving = false; firing = false; updateHud(now); return; }
     let fwd = input.fwd, strafe = input.strafe, turn = 0;
     if (keys["w"] || keys["arrowup"]) fwd += 1; if (keys["s"] || keys["arrowdown"]) fwd -= 1;
     if (keys["a"]) strafe -= 1; if (keys["d"]) strafe += 1;
@@ -387,11 +393,10 @@ window.Client = (function () {
         const nx = pos.x + dx * sp * dt, ny = pos.y + dy * sp * dt;
         if (!Museum.hits(nx, pos.y, 0.28) && !bump(nx, pos.y, pos.x, pos.y)) pos.x = nx;
         if (!Museum.hits(pos.x, ny, 0.28) && !bump(pos.x, ny, pos.x, pos.y)) pos.y = ny;
-        moving = true; bobT += dt * 9; walkT += dt * 8;
+        moving = true; bobT += dt * 9; walkT += dt * 8; if (role === "hide") objA = Math.atan2(dy, dx);
       }
     }
     if (role === "hide" && moving) { stepT -= dt; if (stepT <= 0) { stepT = 0.28; Sound.play("hop", { g: 0.6 }); } }
-    updateCam(dt);
     Sound.setListener(pos.x, pos.y, pos.a);
     // 다른 사람 부드럽게 + 발소리·뛰는 소리·총소리
     for (const [id, o] of others) {
@@ -413,10 +418,10 @@ window.Client = (function () {
     updateHud(now);
   }
   function sendPos(now, force) {
-    const key = `${pos.x.toFixed(2)},${pos.y.toFixed(2)},${pos.a.toFixed(2)}`;
+    const key = `${pos.x.toFixed(2)},${pos.y.toFixed(2)},${(role === "hide" ? objA : pos.a).toFixed(2)}`;
     if (!force && !shots.length && key === lastSentKey && now - lastPos < 1000) return;
     lastSentKey = key; lastPos = now;
-    const m = { t: "pos", x: +pos.x.toFixed(2), y: +pos.y.toFixed(2), a: +pos.a.toFixed(2) };
+    const m = { t: "pos", x: +pos.x.toFixed(2), y: +pos.y.toFixed(2), a: +(role === "hide" ? objA : pos.a).toFixed(2) };   // 미믹은 물건이 바라보는 쪽
     if (shots.length) { m.sh = shots.slice(0, 4); shots = []; }
     Net.sendToHost(m);
   }
@@ -438,112 +443,71 @@ window.Client = (function () {
     } else { fx.marker = { t: 0.6, kind: "real" }; stamps.set(key, now + 6000); Sound.play("real", { g: 0.6 }); fx.hurt = 1; Sound.vibrate(30); }
     sendPos(now, true);
   }
-  // 미믹 카메라: 어깨 너머 3인칭. 뒤가 벽·받침대로 막히면 반대쪽 어깨나 바로 뒤를 찾고, 그래도 좁으면 1인칭으로
-  function camReach(ux, uy, len) {
-    const tx0 = Math.floor(pos.x), ty0 = Math.floor(pos.y); let d = 0.2;
-    for (; d <= len; d += 0.08) { const tx = Math.floor(pos.x + ux * d), ty = Math.floor(pos.y + uy * d); if ((tx !== tx0 || ty !== ty0) && Museum.tile(tx, ty) !== Museum.T_FLOOR) break; }
-    return Math.min(len, d - 0.3);
-  }
-  function updateCam(dt) {
-    let tx = pos.x, ty = pos.y;
-    if (role === "hide" && perch < 0 && !(flags & 1) && item !== -1) {
-      const back = 2.8, ca = Math.cos(pos.a), sa = Math.sin(pos.a);
-      let best = null;
-      for (const side of [0.62, -0.62, 0]) {
-        const bx = -ca * back - sa * side, by = -sa * back + ca * side, len = Math.hypot(bx, by), ux = bx / len, uy = by / len, d = camReach(ux, uy, len);
-        if (!best || d > best.d + 0.05) best = { d, ux, uy };
-        if (d >= 1.8) break;
-      }
-      if (best && best.d >= 1.2) { tx = pos.x + best.ux * best.d; ty = pos.y + best.uy * best.d; }
-    }
-    const jump = Math.hypot(tx - cam.x, ty - cam.y) > 3 || !dt;
-    const k = jump ? 1 : Math.min(1, dt * 9);
-    cam.x += (tx - cam.x) * k; cam.y += (ty - cam.y) * k;
-    if (Museum.tile(Math.floor(cam.x), Math.floor(cam.y)) === Museum.T_WALL) { cam.x = tx; cam.y = ty; }
-    cam.d = Math.hypot(cam.x - pos.x, cam.y - pos.y);
-  }
-
   // ---------- 그리기 ----------
   function accentFor(s) { const c = Museum.cur.cells[s.cell]; return Art.wingColor(c.wing); }
-  function accentAt(x, y) { const c = Museum.cellAt(x, y); return c && c.kind === "room" ? Art.wingColor(c.wing) : "#8a7a5a"; }
-  // 미믹 그림: 멈추면 진짜와 똑같이(전시물은 받침대째), 움직이면 눈알 달고 통통
-  function mimicSprite(f, x, y, mv, now) {
-    const dir = Math.sin(now / 140 + x * 3) > 0 ? 1 : -1;
-    if (f >= 0) { const it = MM.ITEMS[f]; return mv ? { img: Art.withEyes(Art.loose(it), "l" + f, dir), h: LOOSE_SPR } : { img: Art.exhibit(it, accentAt(x, y)), h: STAND_SPR }; }
-    const kind = Rules.EVERYDAY[-2 - f].kind, base = Art.decor(kind);
-    return { img: mv ? Art.withEyes(base, "d" + kind, dir) : base, h: DECOR_H[kind] || 0.8 };
-  }
-  function decorateMimic(sp, id, now) {
-    const o = others.get(id); if (!o) return;
+  // 물건이 바라보는 각(2D) → 3D 회전. 멈춰 있으면 45도씩 맞춘다(진짜 가구처럼 반듯하게)
+  function yawOf(a, still) { const y = Math.atan2(-Math.cos(a), -Math.sin(a)) + Math.PI; return still ? Math.round(y / (Math.PI / 4)) * (Math.PI / 4) : y; }
+  function decorate(e, id, now) {
+    const o = others.get(id); if (!o) return e;
     const k = Math.max(0, 1 - (now - (o.hitT || 0)) / 600);
-    if (k > 0) { sp.tint = `rgba(255,40,40,${0.55 * k})`; sp.wob = Math.sin(now / 18) * 10 * k; }
-    if (o.tauntT && now > o.tauntFrom && now < o.tauntT) sp.wob = (sp.wob || 0) + Math.sin(now / 22) * 7;
-    if (o.flags & 2) sp.alpha = 0.5 + 0.2 * Math.sin(now / 90);
-    if (role === "hide") { sp.name = nm(id); sp.nameColor = "#7dff9a"; }
+    if (k > 0) { e.tint = k; e.wob = Math.sin(now / 18) * 0.07 * k; }
+    if (o.tauntT && now > o.tauntFrom && now < o.tauntT) e.wob = (e.wob || 0) + Math.sin(now / 22) * 0.05;
+    if (o.flags & 2) e.flicker = true;
+    if (role === "hide") { e.name = nm(id); e.nameColor = "#7dff9a"; }
+    return e;
   }
-  let puffImg = null;
-  function puff() {
-    if (puffImg) return puffImg;
-    const c = document.createElement("canvas"); c.width = 96; c.height = 96; const g = c.getContext("2d"), r = Art._rng(5);
-    for (let i = 0; i < 34; i++) { g.fillStyle = ["#ff5a5a", "#ffd84a", "#5ad1ff", "#7dff9a", "#ff8ae0"][i % 5]; const a = r() * 7, d = 10 + r() * 34; g.save(); g.translate(48 + Math.cos(a) * d, 48 + Math.sin(a) * d); g.rotate(r() * 3); g.fillRect(-4, -2, 8, 4); g.restore(); }
-    g.fillStyle = "rgba(255,255,255,0.85)"; g.beginPath(); g.arc(48, 48, 14, 0, 7); g.fill();
-    return (puffImg = c);
-  }
-  function buildSprites(now) {
-    const M = Museum.cur, sprites = [], vx = role === "hide" ? cam.x : pos.x, vy = role === "hide" ? cam.y : pos.y;
-    const near = (x, y) => Math.abs(x - vx) < 26 && Math.abs(y - vy) < 26;
+  // 3D 화면에 넘길 것들: 받침대(전시물), 가구, 학예사, 미믹, 색종이
+  function buildEntities(now) {
+    const M = Museum.cur, ents = [];
     const stampedNow = key => (stamps.get(key) || 0) > now;
     const occ = new Map();
     for (const [id, o] of others) if (o.role === "hide" && o.perch >= 0 && !(o.flags & 1) && o.item >= 0) occ.set(o.perch, id);
     for (const s of M.stands) {
-      if (!near(s.x, s.y)) continue;
-      if (role === "hide" && perch === s.id) continue;     // 내가 올라간 받침대(1인칭으로 내려다본다)
-      const oid = occ.get(s.id), acc = accentFor(s), f = oid ? others.get(oid).item : s.item, it = f >= 0 ? MM.ITEMS[f] : null, key = "s:" + s.id;
-      let img = Art.exhibit(it, acc);
-      if (!oid && it && stampedNow(key)) img = Art.stamped(img, "x" + it.index + acc, 0.27);
-      const sp = { img, x: s.x + 0.5, y: s.y + 0.5, h: STAND_SPR, aimable: true, ref: { kind: "stand", key, s, occ: oid || null, item: it ? it.index : -1 } };
-      if (oid) decorateMimic(sp, oid, now);
-      sprites.push(sp);
+      if (role === "hide" && perch === s.id) {           // 내가 올라간 받침대: 내 모습을 올려 둔다 (카메라가 바짝 붙으면 숨긴다)
+        const k = fx.myHit;
+        ents.push({ k: "stand", self: true, id: s.id, x: s.x + 0.5, y: s.y + 0.5, item, tint: k > 0 ? k : 0, wob: k > 0 ? Math.sin(now / 18) * 0.07 * k : 0, flicker: !!(flags & 2), hidden: camDist < 0.6, ref: { kind: "stand", key: "s:" + s.id, s, occ: me, item } });
+        continue;
+      }
+      const oid = occ.get(s.id), f = oid ? others.get(oid).item : s.item, key = "s:" + s.id;
+      const e = { k: "stand", id: s.id, x: s.x + 0.5, y: s.y + 0.5, item: f, stamped: !oid && f >= 0 && stampedNow(key), ref: { kind: "stand", key, s, occ: oid || null, item: f } };
+      if (oid) decorate(e, oid, now);
+      ents.push(e);
     }
-    M.decor.forEach((d, i) => {
-      if (!near(d.x, d.y)) return;
-      const key = "d:" + i; let img = Art.decor(d.kind);
-      if (stampedNow(key)) img = Art.stamped(img, "d" + d.kind, 0.42);
-      sprites.push({ img, x: d.x + 0.5, y: d.y + 0.5, h: DECOR_H[d.kind] || 0.8, aimable: true, ref: { kind: "decor", key, dk: d.kind } });
-    });
+    M.decor.forEach((d, i) => { const key = "d:" + i; ents.push({ k: "decor", i, x: d.x + 0.5, y: d.y + 0.5, dk: d.kind, stamped: stampedNow(key), ref: { kind: "decor", key, dk: d.kind } }); });
     for (const [id, o] of others) {
       if (o.flags & 1) continue;
       if (o.role === "seek") {
         if (role === "seek" && phase === "hide") continue;
-        sprites.push({ img: Art.curator(TEAM_COLORS[o.team % 4], o.moving ? Math.floor(o.walk) % 2 : 0, !!(o.flags & 8), o.team % 4), x: o.x, y: o.y, h: 1.5, aimable: true, ref: { kind: "curator", id }, name: nm(id), nameColor: TEAM_COLORS[o.team % 4] });
+        ents.push({ k: "cur", id, x: o.x, y: o.y, a: o.a, team: o.team % 4, walk: o.walk, moving: o.moving, jailed: !!(o.flags & 8), firing: !!(o.flags & 128), name: nm(id), nameColor: TEAM_COLORS[o.team % 4], ref: { kind: "curator", id } });
       } else if (o.perch < 0 && o.item !== -1) {
         if (role === "seek" && phase === "hide") continue;
-        const ms = mimicSprite(o.item, o.x, o.y, o.moving, now);
-        const sp = { img: ms.img, x: o.x, y: o.y, h: ms.h, lift: o.moving ? Math.abs(Math.sin(o.walk * 1.1)) * 0.22 : 0, aimable: true, ref: { kind: "mimic", key: "m:" + id, id, item: o.item } };
-        decorateMimic(sp, id, now);
-        sprites.push(sp);
+        const mv = !!o.moving;
+        ents.push(decorate({ k: "mimic", id, x: o.x, y: o.y, item: o.item, moving: mv, lift: mv ? Math.abs(Math.sin(o.walk * 1.1)) * 0.22 : 0, yaw: yawOf(o.a, !mv), eyes: Math.sin(now / 140 + o.x * 3), ref: { kind: "mimic", key: "m:" + id, id, item: o.item } }, id, now));
       }
     }
-    // 나 (3인칭)
-    if (role === "hide" && item !== -1 && perch < 0 && !(flags & 1) && cam.d >= 1.0) {
-      const ms = mimicSprite(item, pos.x, pos.y, moving, now);
-      sprites.push({ img: ms.img, x: pos.x, y: pos.y, h: ms.h, lift: moving ? Math.abs(Math.sin(walkT * 1.1)) * 0.22 : 0, aimable: false,
-        alpha: (flags & 2) ? 0.55 : 1, tint: fx.myHit > 0 ? `rgba(255,40,40,${0.55 * fx.myHit})` : null, wob: fx.myHit > 0 ? Math.sin(now / 18) * 10 * fx.myHit : 0 });
+    if (role === "hide" && item !== -1 && perch < 0 && !(flags & 1)) {
+      const k = fx.myHit;
+      ents.push({ k: "mimic", self: true, id: me, x: pos.x, y: pos.y, item, moving, lift: moving ? Math.abs(Math.sin(walkT * 1.1)) * 0.22 : 0, yaw: yawOf(objA, !moving), eyes: Math.sin(now / 140), tint: k > 0 ? k : 0, wob: k > 0 ? Math.sin(now / 18) * 0.07 * k : 0, flicker: !!(flags & 2), hidden: camDist < 0.6 });
     }
-    for (const p of puffs) { const k = (now - p.t) / 900; sprites.push({ img: puff(), x: p.x, y: p.y, h: 0.7 + k * 0.9, lift: 0.2 + k * 0.5, alpha: 1 - k }); }
-    return sprites;
+    for (const p of puffs) ents.push({ k: "puff", x: p.x, y: p.y, t: (now - p.t) / 900 });
+    return ents;
   }
   function render(now) {
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H);
     if (!Museum.cur) { ctx.fillStyle = "#111"; ctx.fillRect(0, 0, W, H); return; }
     const blind = role === "seek" && phase === "hide";
     if (blind) { drawBlind(now); return; }
-    const third = role === "hide" && perch < 0 && !(flags & 1) && cam.d > 0.05;
-    const sh = fx.shake * 12; ctx.save(); ctx.translate((Math.random() - 0.5) * sh, (Math.random() - 0.5) * sh);
-    const res = Fps.render(ctx, W, H, { pos: third ? { x: cam.x, y: cam.y, a: pos.a } : pos, look, eye: role === "hide" ? (perch >= 0 ? 1.22 : 1.05) : 0.8, bob: moving && !third ? Math.sin(bobT) * 3 : 0, sprites: buildSprites(now), now, gray: !!(flags & 8) });
-    ctx.restore();
+    if (!view3dOk) { ctx.fillStyle = "#15130f"; ctx.fillRect(0, 0, W, H); drawCenterCard("이 기기에서는 3D 화면을 열 수 없어요", "브라우저의 WebGL이 꺼져 있거나 지원되지 않습니다. 다른 기기나 최신 크롬으로 들어와 주세요."); return; }
+    if (!View3D.ready || !View3D.built) { ctx.fillStyle = "#15130f"; ctx.fillRect(0, 0, W, H); ctx.fillStyle = "#e8e2d6"; ctx.font = "bold 20px sans-serif"; ctx.textAlign = "center"; ctx.fillText("과학관을 짓는 중…", W / 2, H / 2); return; }
+    if (Options.get("quality") !== lastQ) resize();
+    const third = role === "hide" && !(flags & 1) && item !== -1;
+    const sh = fx.shake * 0.06, jx = (Math.random() - 0.5) * sh, jy = (Math.random() - 0.5) * sh;
+    const res = View3D.frame({ mode: third ? "third" : "first", x: pos.x + jx, y: pos.y + jy, a: pos.a, look, bob: moving && !third ? Math.sin(bobT) * 0.025 : 0,
+      targetH: perch >= 0 ? View3D.PED_TOP + 0.35 : 0.7, ents: buildEntities(now), now, gray: !!(flags & 8),
+      gun: { show: role === "seek" && phase !== "hide" && !(flags & 8), recoil: fx.recoil, bob: moving ? bobT : 0 } });
+    camDist = res.camDist || 0;
     aim = res.aim && res.aim.dist <= Rules.SHOT_RANGE ? res.aim : null;
-    if (role === "seek") drawGun(now);
+    if (role === "seek" && fx.recoil > 0.55 && !(flags & 8)) { ctx.strokeStyle = `rgba(214,30,40,${(fx.recoil - 0.55) * 2})`; ctx.lineWidth = Math.max(4, W / 220); ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(W * 0.64, H * 0.8); ctx.quadraticCurveTo(W * 0.58, H * 0.62, W / 2, H / 2 + 4); ctx.stroke(); ctx.lineCap = "butt"; }
     drawCrosshair(now);
     const edge = (col, a) => { const g = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.72); g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(1, `rgba(${col},${a})`); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); };
     if (fx.hurt > 0) edge("210,30,30", 0.5 * fx.hurt);
@@ -570,22 +534,7 @@ window.Client = (function () {
         else if (m.kind === "shield") { ctx.strokeStyle = "#7ecbff"; ctx.beginPath(); ctx.arc(x, y, 20, 0, 7); ctx.stroke(); }
         ctx.restore();
       }
-    } else if (perch >= 0) { ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x + 6, y); ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6); ctx.stroke(); }
-  }
-  // 도장총: 손잡이 + 빨간 잉크 통 + 큰 도장 머리. 쏘면 잉크 줄기
-  function drawGun(now) {
-    if (flags & 8) return;
-    const s = Math.min(W, H) / 600, rc = fx.recoil, bob = moving ? Math.sin(bobT) * 6 * s : 0;
-    const gx = W - 170 * s, gy = H - 30 * s + rc * 18 * s + bob;
-    if (rc > 0.55) { ctx.strokeStyle = `rgba(214,30,40,${(rc - 0.55) * 2})`; ctx.lineWidth = 7 * s; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(gx - 40 * s, gy - 150 * s); ctx.quadraticCurveTo(W * 0.62, H * 0.6, W / 2, H / 2 + 4); ctx.stroke(); ctx.lineCap = "butt"; }
-    ctx.save(); ctx.translate(gx, gy); ctx.rotate(-0.35 - rc * 0.12); ctx.scale(s, s);
-    ctx.fillStyle = "#3a3d44"; ctx.fillRect(-18, -60, 36, 70);                      // 손잡이
-    ctx.fillStyle = "#f2c9a0"; ctx.beginPath(); ctx.ellipse(-4, -30, 30, 40, 0.2, 0, 7); ctx.fill();   // 손
-    ctx.fillStyle = "#5a6070"; ctx.fillRect(-26, -130, 52, 76);                     // 몸통
-    ctx.fillStyle = "#d32f2f"; ctx.fillRect(-16, -122, 18, 56); ctx.fillStyle = "rgba(255,255,255,0.35)"; ctx.fillRect(-13, -118, 4, 48);  // 잉크 통
-    ctx.fillStyle = "#c8a050"; ctx.fillRect(-32, -160, 64, 32);                     // 도장 머리
-    ctx.fillStyle = "#b71c1c"; ctx.fillRect(-30, -170, 60, 12);
-    ctx.restore();
+    } else if (perch >= 0 && camDist < 0.6) { ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x - 6, y); ctx.lineTo(x + 6, y); ctx.moveTo(x, y - 6); ctx.lineTo(x, y + 6); ctx.stroke(); }
   }
   function drawCenterCard(title, sub, sub2) {
     const w = Math.min(W - 30, 620); ctx.fillStyle = "rgba(15,17,22,0.88)"; ctx.fillRect((W - w) / 2, H * 0.28, w, sub2 ? 150 : 120);
@@ -686,6 +635,7 @@ window.Client = (function () {
     }
     el("aim-label").innerHTML = label ? `<b>${esc(label)}</b>${sub ? `<span>${esc(sub)}</span>` : ""}` : "";
     el("aim-label").style.display = label && !mapOpen ? "" : "none";
+    el("aim-label").classList.toggle("low", role === "hide" && item !== -1 && !(flags & 1));   // 3인칭: 내 모습을 가리지 않게 아래로
     // 버튼
     let main = "", sub2 = "", dash = "", mainOn = false, subOn = false, dashOn = false;
     if (role === "seek") {
@@ -713,5 +663,5 @@ window.Client = (function () {
 
   return { start, stop, restore, setConnectionLost, onMessage, toast(t) { showToast(t, 5); }, setNames(n, t) { names = n; if (t) teams = t; }, get me() { return me; },
     _dbg: { pos: () => pos, set: (x, y, a) => { pos.x = x; pos.y = y; if (a !== undefined) pos.a = a; }, S: () => S, role: () => role, item: () => item, offers: () => offers, perch: () => perch, flags: () => flags, hp: () => hp, aim: () => aim, info: () => info, phase: () => phase,
-      main: mainAction, sub: subAction, dash: dashAction, choose, nearStand, others: () => others, fire: v => { firing = !!v; }, shoot: key => { shots.push(key); sendPos(performance.now(), true); }, cam: () => cam, look: v => { if (v !== undefined) look = v; return look; } } };
+      main: mainAction, sub: subAction, dash: dashAction, choose, nearStand, others: () => others, fire: v => { firing = !!v; }, shoot: key => { shots.push(key); sendPos(performance.now(), true); }, cam: () => camDist, look: v => { if (v !== undefined) look = v; return look; } } };
 })();
